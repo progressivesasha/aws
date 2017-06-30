@@ -1,0 +1,106 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Resources": {
+        "ELBSG": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "ELB ports 80 and 443 are open",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "443",
+                        "ToPort": "443",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ]
+            }
+        },
+        "ASGSG": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "SSH is available from EPAM network only and port 8080 is open only for elb",
+                "GroupName": "ASGSG",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": "89.162.139.0/24"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "8080",
+                        "ToPort": "8080",
+                        "SourceSecurityGroupId": {
+                            "Fn::GetAtt": [
+                                "ELBSG",
+                                "GroupId"
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "DBSG": {
+            "Type": "AWS::RDS::DBSecurityGroup",
+            "Properties": {
+                "GroupDescription": "allow inbound traffic from ec2 instances",
+                "DBSecurityGroupIngress": {
+                    "EC2SecurityGroupId": {
+                        "Fn::GetAtt": [
+                            "ASGSG",
+                            "GroupId"
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "ELBSGId": {
+            "Description": "The ID of Load Balancer Security Group",
+            "Value": {
+                "Fn::GetAtt": [
+                    "ELBSG",
+                    "GroupId"
+                ]
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Sub": "${AWS::StackName}-ELBSGId"
+                }
+            }
+        },
+        "DBSG": {
+            "Description": "DB SecGroup",
+            "Value": {
+                "Ref": "DBSG"
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Sub": "${AWS::StackName}-DBSG"
+                }
+            }
+        },
+        "ASGSGId": {
+            "Description": "The ID of ASG Security Group",
+            "Value": {
+                "Fn::GetAtt": [
+                    "ASGSG",
+                    "GroupId"
+                ]
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Sub": "${AWS::StackName}-ASGSGId"
+                }
+            }
+        }
+    }
+}

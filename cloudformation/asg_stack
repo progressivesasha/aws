@@ -1,0 +1,304 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters": {
+        "KeyName": {
+            "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+            "Type": "AWS::EC2::KeyPair::KeyName",
+            "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+        },
+        "ELBStackName": {
+            "Description": "ELB and DB StackName",
+            "Type": "String",
+            "MinLength": 1,
+            "MaxLength": 255,
+            "AllowedPattern": "^[a-zA-Z][-a-zA-Z0-9]*$",
+            "Default": "ELBStack"
+        },
+        "SGStackName": {
+            "Description": "SecGroups StackName",
+            "Type": "String",
+            "MinLength": 1,
+            "MaxLength": 255,
+            "AllowedPattern": "^[a-zA-Z][-a-zA-Z0-9]*$",
+            "Default": "SGStack"
+        }
+    },
+    "Resources": {
+        "ASG": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "LaunchConfigurationName": {
+                    "Ref": "ASGLC"
+                },
+                "LoadBalancerNames": [
+                    {
+                        "Fn::ImportValue": {
+                            "Fn::Sub": "${ELBStackName}-ELBName"
+                        }
+                    }
+                ],
+                "AvailabilityZones": {
+                    "Fn::GetAZs": ""
+                },
+                "MaxSize": "5",
+                "MinSize": "2"
+            }
+        },
+        "ASGLC": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "Metadata": {
+                "AWS::CloudFormation::Init": {
+                    "config": {
+                        "packages": {
+                            "yum": {
+                                "httpd": [],
+                                "php": [],
+                                "php-mysql": []
+                            }
+                        },
+                        "files": {
+                            "/var/www/html/index.php": {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "<html>\n",
+                                            "  <head>\n",
+                                            "    <title>AWS CloudFormation PHP Sample</title>\n",
+                                            "    <meta http-equiv=\"Content-Type\" content=\"text/html; charset=ISO-8859-1\">\n",
+                                            "  </head>\n",
+                                            "  <body>\n",
+                                            "    <h1>Welcome to the AWS CloudFormation PHP Sample</h1>\n",
+                                            "    <p/>\n",
+                                            "    <?php\n",
+                                            "      // Print out the current data and time\n",
+                                            "      print \"The Current Date and Time is: <br/>\";\n",
+                                            "      print date(\"g:i A l, F j Y.\");\n",
+                                            "    ?>\n",
+                                            "    <p/>\n",
+                                            "    <?php\n",
+                                            "      // Setup a handle for CURL\n",
+                                            "      $curl_handle=curl_init();\n",
+                                            "      curl_setopt($curl_handle,CURLOPT_CONNECTTIMEOUT,2);\n",
+                                            "      curl_setopt($curl_handle,CURLOPT_RETURNTRANSFER,1);\n",
+                                            "      // Get the hostname of the intance from the instance metadata\n",
+                                            "      curl_setopt($curl_handle,CURLOPT_URL,'http://169.254.169.254/latest/meta-data/public-hostname');\n",
+                                            "      $hostname = curl_exec($curl_handle);\n",
+                                            "      if (empty($hostname))\n",
+                                            "      {\n",
+                                            "        print \"Sorry, for some reason, we got no hostname back <br />\";\n",
+                                            "      }\n",
+                                            "      else\n",
+                                            "      {\n",
+                                            "        print \"Server = \" . $hostname . \"<br />\";\n",
+                                            "      }\n",
+                                            "      // Get the instance-id of the intance from the instance metadata\n",
+                                            "      curl_setopt($curl_handle,CURLOPT_URL,'http://169.254.169.254/latest/meta-data/instance-id');\n",
+                                            "      $instanceid = curl_exec($curl_handle);\n",
+                                            "      if (empty($instanceid))\n",
+                                            "      {\n",
+                                            "        print \"Sorry, for some reason, we got no instance id back <br />\";\n",
+                                            "      }\n",
+                                            "      else\n",
+                                            "      {\n",
+                                            "        print \"EC2 instance-id = \" . $instanceid . \"<br />\";\n",
+                                            "      }\n",
+                                            "      $Database   = \"",
+                                            {
+                                                "Fn::ImportValue": {
+                                                    "Fn::Sub": "${ELBStackName}-DBName"
+                                                }
+                                            },
+                                            "\";\n",
+                                            "      $DBUser     = \"",
+                                            {
+                                                "Fn::ImportValue": {
+                                                    "Fn::Sub": "${ELBStackName}-DBUser"
+                                                }
+                                            },
+                                            "\";\n",
+                                            "      $DBPassword = \"",
+                                            {
+                                                "Fn::ImportValue": {
+                                                    "Fn::Sub": "${ELBStackName}-DBPassword"
+                                                }
+                                            },
+                                            "\";\n",
+                                            "      $StackName = \"",
+                                            {
+                                                "Ref": "AWS::StackName"
+                                            },
+                                            "\";\n",
+                                            "      print \"Database = \" . $Database . \"<br />\";\n",
+                                            "      print \"StackName = \" . $StackName . \"<br />\";\n",
+                                            "      $dbconnection = mysql_connect($Database, $DBUser, $DBPassword)\n",
+                                            "                      or die(\"Could not connect: \" . mysql_error());\n",
+                                            "      print (\"Connected to $Database successfully\");\n",
+                                            "      mysql_close($dbconnection);\n",
+                                            "    ?>\n",
+                                            "    <h2>PHP Information</h2>\n",
+                                            "    <p/>\n",
+                                            "    <?php\n",
+                                            "      phpinfo();\n",
+                                            "    ?>\n",
+                                            "  </body>\n",
+                                            "</html>\n"
+                                        ]
+                                    ]
+                                },
+                                "mode": "000600",
+                                "owner": "apache",
+                                "group": "apache"
+                            },
+                            "/etc/cfn/cfn-hup.conf": {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "[main]\n",
+                                            "stack=",
+                                            {
+                                                "Ref": "AWS::StackId"
+                                            },
+                                            "\n",
+                                            "region=",
+                                            {
+                                                "Ref": "AWS::Region"
+                                            },
+                                            "\n"
+                                        ]
+                                    ]
+                                },
+                                "mode": "000400",
+                                "owner": "root",
+                                "group": "root"
+                            },
+                            "/etc/cfn/hooks.d/cfn-auto-reloader.conf": {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "[cfn-auto-reloader-hook]\n",
+                                            "triggers=post.update\n",
+                                            "path=Resources.ASGLC.Metadata.AWS::CloudFormation::Init\n",
+                                            "action=/opt/aws/bin/cfn-init -v ",
+                                            "         --stack ",
+                                            {
+                                                "Ref": "AWS::StackName"
+                                            },
+                                            "         --resource ASGLC ",
+                                            "         --region ",
+                                            {
+                                                "Ref": "AWS::Region"
+                                            },
+                                            "\n",
+                                            "runas=root\n"
+                                        ]
+                                    ]
+                                }
+                            }
+                        },
+                        "commands": {
+                            "a": {
+                                "command": "touch /opt/aws/httpdconf"
+                            },
+                            "b": {
+                                "command": "sed '/Listen/s/80/8080/' /etc/httpd/conf/httpd.conf > /opt/aws/httpdconf"
+                            },
+                            "c": {
+                                "command": "cp /opt/aws/httpdconf /etc/httpd/conf/httpd.conf"
+                            },
+                            "d": {
+                                "command": "semanage port -m -t http_port_t -p tcp 8080"
+                            },
+                            "e": {
+                                "command": "setsebool -P httpd_can_network_connect=1"
+                            },
+                            "f": {
+                                "command": "systemctl restart httpd"
+                            }
+                        },
+                        "services": {
+                            "sysvinit": {
+                                "httpd": {
+                                    "enabled": "true",
+                                    "ensureRunning": "true"
+                                },
+                                "cfn-hup": {
+                                    "enabled": "true",
+                                    "ensureRunning": "true",
+                                    "files": [
+                                        "/etc/cfn/cfn-hup.conf",
+                                        "/etc/cfn/hooks.d/cfn-auto-reloader.conf"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "Properties": {
+                "SecurityGroups": [
+                    {
+                        "Fn::ImportValue": {
+                            "Fn::Sub": "${SGStackName}-ASGSGId"
+                        }
+                    }
+                ],
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "ImageId": "ami-9e2f0988",
+                "InstanceType": "t2.micro",
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash\n",
+                                "## Install EPEL\n",
+                                "rpm -Uvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-9.noarch.rpm\n",
+                                "# Installing CFN-init \n",
+                                "yum -y install python-pip",
+                                "\n",
+                                "cd /usr/bin",
+                                "\n",
+                                "/usr/bin/easy_install --script-dir /opt/aws/bin https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz",
+                                "\n",
+                                "cp -f `pip show aws-cfn-bootstrap 2> /dev/null | grep -i \"^Location\" | awk '{ print $2\"/init/redhat/cfn-hup\"}'` /etc/init.d/",
+                                "\n",
+                                "chmod 755 /etc/init.d/cfn-hup",
+                                "\n",
+                                "chkconfig --add cfn-hup",
+                                "\n",
+                                "yum update -y aws-cfn-bootstrap\n",
+                                "/opt/aws/bin/cfn-init -v ",
+                                "         --stack ",
+                                {
+                                    "Ref": "AWS::StackName"
+                                },
+                                "         --resource ASGLC ",
+                                "         --region ",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "\n",
+                                "/opt/aws/bin/cfn-signal -e $? ",
+                                "         --stack ",
+                                {
+                                    "Ref": "AWS::StackName"
+                                },
+                                "         --resource ASG ",
+                                "         --region ",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
