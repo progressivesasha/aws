@@ -100,7 +100,7 @@ def user_create(table_name):
         else:
             print ('wrong input')
 
-            
+
 table_name = input ('Input table name: ')
 hash_attr = input ('Define hash attribute name: ')
 range_attr = input ('Define range attribute name: ')
