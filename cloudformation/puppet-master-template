@@ -1,0 +1,127 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters": {
+        "KeyName": {
+            "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+            "Type": "AWS::EC2::KeyPair::KeyName",
+            "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+        }
+    },
+    "Metadata": {
+        "AWS::CloudFormation::Designer": {
+            "0d8fb1d1-e67e-46ea-9cb6-3d0b55172d01": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 408,
+                    "y": 106
+                },
+                "z": 0,
+                "embeds": []
+            }
+        }
+    },
+    "Resources": {
+        "PuppetMaster": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "ImageId": "ami-9e2f0988",
+                "InstanceType": "t2.micro",
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash\n",
+                                "##Install puppet\n",
+                                "touch /tmp/reserve.conf\n",
+                                "dd if=/dev/xvda2 of=/var/myswap bs=1M count=1024\n",
+                                "mkswap /var/myswap\n",
+                                "chmod 0600 /var/myswap\n",
+                                "swapon /var/myswap\n",
+                                "sudo rpm -ivh https://yum.puppetlabs.com/puppetlabs-release-pc1-el-7.noarch.rpm\n",
+                                "yum update -y\n",
+                                "yum -y install puppetserver\n",
+                                "sed '/JAVA_ARGS/s/-Xms2g -Xmx2g/-Xms512m -Xmx512m/' /etc/sysconfig/puppetserver > /tmp/reserve.conf\n",
+                                "cp /tmp/reserve.conf /etc/sysconfig/puppetserver\n",
+                                "systemctl restart puppetserver && systemctl enable puppetserver\n",
+                                "mkdir /etc/puppetlabs/puppetserver/ssh/\n",
+                                "ssh-keygen -t rsa -f /etc/puppetlabs/puppetserver/ssh/id-control_repo.rsa -N ''\n",
+                                "yum install rubygems git -y\n",
+                                "gem install puppet_forge:2.2.6 r10k\n",
+                                "sudo gem install r10k -y\n",
+                                "mkdir -p /etc/puppetlabs/r10k/\n",
+                                "echo '---\n",
+                                " :cachedir: /var/cache/r10k\n",
+                                " :sources:\n",
+                                "   puppet:\n",
+                                "     remote: git@github.com:progressivesasha/puppet-r10k.git\n",
+                                "     basedir: /etc/puppetlabs/code/environments\n",
+                                " :git:\n",
+                                "   private_key: \"/etc/puppetlabs/puppetserver/ssh/id-control_repo.rsa\"\n",
+                                " :purgedirs:\n",
+                                "   - /etc/puppetlabs/puppet/environments' > /etc/puppetlabs/r10k/r10k.yaml\n",
+                                "touch ~/.ssh/config\n",
+                                "echo 'Host *\n",
+                                "  StrictHostKeyChecking no\n",
+                                "Host github.com\n",
+                                "  IdentityFile /etc/puppetlabs/puppetserver/ssh/id-control_repo.rsa\n",
+                                "  User progressivesasha' > ~/.ssh/config\n",
+                                "gem install hiera-eyaml\n",
+                                "puppetserver gem install hiera-eyaml\n",
+                                "echo '[main]\n",
+                                "environmentpath = $codedir/environments\n",
+                                "[master]\n",
+                                "vardir = /opt/puppetlabs/server/data/puppetserver\n",
+                                "logdir = /var/log/puppetlabs/puppetserver\n",
+                                "rundir = /var/run/puppetlabs/puppetserver\n",
+                                "pidfile = /var/run/puppetlabs/puppetserver/puppetserver.pid\n",
+                                "codedir = /etc/puppetlabs/code\n",
+                                "dns_alt_names = puppet-master.example.com,puppet,puppet-master' > /etc/puppetlabs/puppet/puppet.conf\n",
+                                "echo \"---\n",
+                                ":backends:\n",
+                                "  - yaml\n",
+                                "  - eyaml\n",
+                                ":hierarchy:\n",
+                                "  - 'nodes/%{::trusted.certname}'\n",
+                                "  - common\n",
+                                ":yaml:\n",
+                                "  :datadir: '/etc/puppetlabs/code/environments/%{environment}/hieradata'\n",
+                                ":eyaml:\n",
+                                "  :datadir: '/etc/puppetlabs/code/environments/%{environment}/hieradata'\n",
+                                "  :pkcs7_private_key: /etc/puppetlabs/keys/%{environment}_private_key.pkcs7.pem\n",
+                                "  :pkcs7_public_key: /etc/puppetlabs/keys/%{environment}_public_key.pkcs7.pem\" > /etc/puppetlabs/puppet/hiera.yaml\n"
+                            ]
+                        ]
+                    }
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "0d8fb1d1-e67e-46ea-9cb6-3d0b55172d01"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "PuppetMasterIp": {
+            "Description": "Puppet Server IP address",
+            "Value": {
+                "Fn::GetAtt": [
+                    "PuppetMaster",
+                    "PrivateIp"
+                ]
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Sub": "${AWS::StackName}-PuppetMasterIp"
+                }
+            }
+        }
+    }
+}

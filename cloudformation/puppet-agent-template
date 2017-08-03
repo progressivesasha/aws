@@ -1,0 +1,88 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters": {
+        "KeyName": {
+            "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+            "Type": "AWS::EC2::KeyPair::KeyName",
+            "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+        },
+        "PuppetServerStack": {
+            "Description": "Puppet Server Stack Name",
+            "Type": "String",
+            "MinLength": 1,
+            "MaxLength": 255,
+            "Default": "puppet-master"
+        },
+        "PuppetEnv": {
+            "Description": "Puppet Environment Name",
+            "Type": "String",
+            "MinLength": 1,
+            "MaxLength": 255,
+            "AllowedPattern": "^[a-zA-Z][-a-zA-Z]*$",
+            "Default": "production"
+        }
+    },
+    "Metadata": {
+        "AWS::CloudFormation::Designer": {
+            "0d8fb1d1-e67e-46ea-9cb6-3d0b55172d01": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 408,
+                    "y": 106
+                },
+                "z": 0,
+                "embeds": []
+            }
+        }
+    },
+    "Resources": {
+        "PuppetAgent": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "ImageId": "ami-9e2f0988",
+                "InstanceType": "t2.micro",
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash\n",
+                                "sudo rpm -ivh https://yum.puppetlabs.com/puppetlabs-release-pc1-el-7.noarch.rpm\n",
+                                "sudo yum -y install puppet-agent\n",
+                                "sudo /opt/puppetlabs/bin/puppet resource service puppet ensure=running enable=true\n",
+                                "echo '",
+                                {
+                                    "Fn::ImportValue": {
+                                        "Fn::Sub": "${PuppetServerStack}-PuppetMasterIp"
+                                    }
+                                },
+                                " puppet' >> /etc/hosts\n",
+                                "echo '[main]\n",
+                                "certname = puppet-client.example.com\n",
+                                "server = puppet\n",
+                                "environment = ",
+                                {
+                                    "Ref": "PuppetEnv"
+                                },
+                                "\n",
+                                "runinterval = 15m' > /etc/puppetlabs/puppet/puppet.conf\n",
+                                "puppet agent -t\n"
+                            ]
+                        ]
+                    }
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "0d8fb1d1-e67e-46ea-9cb6-3d0b55172d01"
+                }
+            }
+        }
+    }
+}
