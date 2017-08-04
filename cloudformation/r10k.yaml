@@ -1,0 +1,10 @@
+---
+ :cachedir: /var/cache/r10k
+ :sources:
+   puppet:
+     remote: git@github.com:progressivesasha/puppet-r10k.git
+     basedir: /etc/puppetlabs/code/environments
+ :git:
+   private_key: /etc/puppetlabs/puppetserver/ssh/id-control_repo.rsa
+ :purgedirs:
+   - /etc/puppetlabs/puppet/environments
