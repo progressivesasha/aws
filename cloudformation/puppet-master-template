@@ -7,22 +7,6 @@
             "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
         }
     },
-    "Metadata": {
-        "AWS::CloudFormation::Designer": {
-            "0d8fb1d1-e67e-46ea-9cb6-3d0b55172d01": {
-                "size": {
-                    "width": 60,
-                    "height": 60
-                },
-                "position": {
-                    "x": 408,
-                    "y": 106
-                },
-                "z": 0,
-                "embeds": []
-            }
-        }
-    },
     "Resources": {
         "PuppetMaster": {
             "Type": "AWS::EC2::Instance",
@@ -74,6 +58,11 @@
                                 "  User progressivesasha' > ~/.ssh/config\n",
                                 "gem install hiera-eyaml\n",
                                 "puppetserver gem install hiera-eyaml\n",
+								"ln -s /opt/puppetlabs/server/data/puppetserver/jruby-gems/gems/hiera-eyaml-2.1.0/lib/hiera/backend/eyaml_backend.rb /opt/puppetlabs/puppet/lib/ruby/vendor_ruby/hiera/backend/eyaml_backend.rb\n",
+								"ln -s /opt/puppetlabs/server/data/puppetserver/jruby-gems/gems/hiera-eyaml-2.1.0/lib/hiera/backend/eyaml /opt/puppetlabs/puppet/lib/ruby/vendor_ruby/hiera/backend/eyaml\n",
+								"ln -s /opt/puppetlabs/server/data/puppetserver/jruby-gems/gems/hiera-eyaml-2.1.0/lib/hiera/backend/eyaml.rb /opt/puppetlabs/puppet/lib/ruby/vendor_ruby/hiera/backend/eyaml.rb\n",
+								"ln -s /opt/puppetlabs/server/data/puppetserver/jruby-gems/gems/highline-1.6.21/lib/highline.rb /opt/puppetlabs/puppet/lib/ruby/vendor_ruby/highline.rb\n",
+								"ln -s /opt/puppetlabs/server/data/puppetserver/jruby-gems/gems/highline-1.6.21/lib/highline /opt/puppetlabs/puppet/lib/ruby/vendor_ruby/highline\n",
                                 "echo '[main]\n",
                                 "environmentpath = $codedir/environments\n",
                                 "[master]\n",
@@ -99,11 +88,6 @@
                             ]
                         ]
                     }
-                }
-            },
-            "Metadata": {
-                "AWS::CloudFormation::Designer": {
-                    "id": "0d8fb1d1-e67e-46ea-9cb6-3d0b55172d01"
                 }
             }
         }
